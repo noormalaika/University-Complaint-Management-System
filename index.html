@@ -306,6 +306,19 @@ textarea { resize: vertical; min-height: 90px; }
 }
 .notice.info { background: #e3f2fd; border-color: #90caf9; color: #0d47a1; }
 .notice.error { background: #ffebee; border-color: #ffcdd2; color: #8a1c1c; }
+.contract-row {
+  display: flex;
+  gap: .6rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.contract-row input {
+  flex: 1;
+  min-width: 280px;
+  font-family: Consolas, monospace;
+  font-size: .8rem;
+}
 .empty { text-align: center; padding: 3rem; color: var(--sub); font-size: .9rem; }
 .empty .icon { font-size: 2.2rem; margin-bottom: .5rem; }
 
@@ -374,7 +387,11 @@ footer strong { color: var(--amber2); }
     <div class="card">
       <h3>Recent Complaints</h3>
       <div id="setupNotice" class="notice info">
-        Connect MetaMask after deploying the contract, then paste the deployed contract address into <b>CONTRACT_ADDRESS</b> in this file.
+        Connect MetaMask on Sepolia, then paste the <b>Sepolia deployed contract address</b> from Remix below.
+      </div>
+      <div class="contract-row">
+        <input id="contractAddressInput" placeholder="Paste Sepolia contract address here, e.g. 0x..." />
+        <button class="btn btn-amber" onclick="useContractAddress()">Use Address</button>
       </div>
       <div class="filter-row">
         <select id="filterCat" onchange="loadAll()">
@@ -559,10 +576,17 @@ footer strong { color: var(--amber2); }
 
 <script>
 // IMPORTANT:
-// 1. Deploy UniversityComplaints.sol on Sepolia in Remix.
-// 2. Copy the deployed contract address from Remix.
-// 3. Paste it below. Do not use the old Remix VM address 0xd9145...
-const CONTRACT_ADDRESS = "0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8";
+// This is only the starting value for the address box.
+// You can paste a new Sepolia deployment address in the page without editing code.
+const REMIX_VM_ADDRESSES = [
+  "0xd9145cce52d386f254917e481eb44e9943f39138",
+  "0xd8b934580fce35a11b58c6d73adee468a2833fa8"
+];
+let CONTRACT_ADDRESS = localStorage.getItem("auComplaintContractAddress") || "";
+if (REMIX_VM_ADDRESSES.includes(CONTRACT_ADDRESS.toLowerCase())) {
+  localStorage.removeItem("auComplaintContractAddress");
+  CONTRACT_ADDRESS = "";
+}
 const SEPOLIA_CHAIN_ID = 11155111;
 const SEPOLIA_CHAIN_ID_HEX = "0xaa36a7";
 
@@ -1213,28 +1237,16 @@ async function connectWallet() {
     setConnectBusy(true);
     provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
-    await switchToSepolia();
-    provider = new ethers.providers.Web3Provider(window.ethereum);
     signer = provider.getSigner();
     userAddress = await signer.getAddress();
-
-    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    await assertContractIsReady();
 
     document.getElementById("connectBtn").textContent = "Connected";
     document.getElementById("connectBtn").style.background = "var(--green)";
     document.getElementById("walletInfo").textContent = shortAddress(userAddress);
-    document.getElementById("setupNotice").style.display = "none";
 
-    const isAdmin = await contract.admins(userAddress).catch(() => false);
-    document.getElementById("adminNotice").style.display = isAdmin ? "none" : "block";
-    document.getElementById("adminContent").style.display = isAdmin ? "block" : "none";
-
-    await loadStats();
-    await loadAll();
-    toast("Wallet connected successfully.");
+    toast("Wallet connected. Checking contract address...");
+    await useContractAddress();
   } catch (e) {
-    disconnectUi();
     showSetupError(readableError(e));
     toast(readableError(e), true);
   } finally {
@@ -1242,9 +1254,61 @@ async function connectWallet() {
   }
 }
 
+async function useContractAddress() {
+  try {
+    if (!window.ethereum) {
+      throw new Error("MetaMask not found. Install MetaMask or enable it for this page.");
+    }
+
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    const accounts = await provider.listAccounts();
+    if (!accounts.length) {
+      await connectWallet();
+      return;
+    }
+
+    signer = provider.getSigner();
+    userAddress = await signer.getAddress();
+    document.getElementById("connectBtn").textContent = "Connected";
+    document.getElementById("connectBtn").style.background = "var(--green)";
+    document.getElementById("walletInfo").textContent = shortAddress(userAddress);
+
+    CONTRACT_ADDRESS = document.getElementById("contractAddressInput").value.trim();
+    await switchToSepolia();
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+    await assertContractIsReady();
+
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    localStorage.setItem("auComplaintContractAddress", CONTRACT_ADDRESS);
+
+    const isAdmin = await contract.admins(userAddress).catch(() => false);
+    document.getElementById("adminNotice").style.display = isAdmin ? "none" : "block";
+    document.getElementById("adminContent").style.display = isAdmin ? "block" : "none";
+    document.getElementById("setupNotice").className = "notice info";
+    document.getElementById("setupNotice").innerHTML = `Connected to Sepolia contract: <b>${esc(CONTRACT_ADDRESS)}</b>`;
+
+    await loadStats();
+    await loadAll();
+    toast("Contract connected successfully.");
+  } catch (e) {
+    contract = null;
+    showSetupError(readableError(e));
+    document.getElementById("allComplaintsBody").innerHTML =
+      `<tr><td colspan="7" class="empty">${esc(readableError(e))}</td></tr>`;
+    toast(readableError(e), true);
+  }
+}
+
 async function assertContractIsReady() {
+  if (REMIX_VM_ADDRESSES.includes(CONTRACT_ADDRESS.toLowerCase())) {
+    throw new Error(
+      "That address is from Remix VM/local testing, not Sepolia. In Remix, choose Environment: Injected Provider - MetaMask, confirm MetaMask shows Sepolia, deploy again, then copy the new deployed address."
+    );
+  }
+
   if (!ethers.utils.isAddress(CONTRACT_ADDRESS)) {
-    throw new Error("Paste your Sepolia deployed contract address into CONTRACT_ADDRESS first.");
+    throw new Error("Paste a valid Sepolia contract address. It must start with 0x and be 42 characters long.");
   }
 
   const network = await provider.getNetwork();
@@ -1261,9 +1325,10 @@ async function assertContractIsReady() {
   }
 
   try {
-    await contract.owner();
-    await contract.getTotalComplaints();
-    await contract.getAllIds();
+    const probe = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+    await probe.owner();
+    await probe.getTotalComplaints();
+    await probe.getAllIds();
   } catch (e) {
     throw new Error(
       "A contract exists at this address, but it is not this UniversityComplaints contract. " +
@@ -1679,7 +1744,8 @@ function setConnectBusy(isBusy) {
   const btn = document.getElementById("connectBtn");
   btn.disabled = isBusy;
   if (isBusy) btn.textContent = "Connecting...";
-  else if (!contract) btn.textContent = "Connect Wallet";
+  else if (userAddress) btn.textContent = "Connected";
+  else btn.textContent = "Connect Wallet";
 }
 
 function disconnectUi() {
@@ -1772,6 +1838,8 @@ function toast(msg, isErr = false) {
 document.getElementById("detailModal").addEventListener("click", e => {
   if (e.target.id === "detailModal") closeModal();
 });
+
+document.getElementById("contractAddressInput").value = CONTRACT_ADDRESS;
 
 if (window.ethereum) {
   window.ethereum.on("accountsChanged", () => window.location.reload());
