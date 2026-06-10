@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AU Complaint Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<style>
+/* ── Variables ── */
+:root {
+  --navy:   #1a2744;
+  --navy2:  #243255;
+  --amber:  #e8a020;
+  --amber2: #f5b840;
+  --white:  #ffffff;
+  --gray1:  #f4f6fb;
+  --gray2:  #e8ecf4;
+  --gray3:  #b0bcd4;
+  --text:   #1e2840;
+  --sub:    #4a5578;
+  --red:    #d94040;
+  --green:  #27a060;
+  --shadow: 0 2px 16px rgba(26,39,68,.10);
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--gray1);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+header {
+  background: var(--navy);
+  color: var(--white);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+  position: sticky; top: 0; z-index: 100;
+}
+.brand { display: flex; align-items: center; gap: .75rem; }
+.brand-icon {
+  width: 38px; height: 38px; border-radius: 8px;
+  background: var(--amber); display: flex; align-items: center;
+  justify-content: center; font-size: 1.3rem;
+}
+.brand-text h1 { font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
+.brand-text p  { font-size: .7rem; opacity: .7; }
+
+nav { display: flex; gap: .25rem; }
+nav button {
+  background: transparent; border: none; color: rgba(255,255,255,.75);
+  padding: .45rem .9rem; border-radius: 6px; cursor: pointer;
+  font-size: .85rem; transition: all .2s;
+}
+nav button:hover, nav button.active {
+  background: rgba(255,255,255,.12); color: var(--white);
+}
+
+#connectBtn {
+  background: var(--amber); color: var(--navy); border: none;
+  padding: .45rem 1.1rem; border-radius: 6px; font-weight: 700;
+  cursor: pointer; font-size: .82rem; transition: background .2s;
+  white-space: nowrap;
+}
+#connectBtn:hover { background: var(--amber2); }
+#walletInfo { font-size: .75rem; color: var(--amber2); text-align: right; }
+
+/* ── Hero Banner ── */
+.hero {
+  background: linear-gradient(135deg, var(--navy) 60%, var(--navy2));
+  color: var(--white); padding: 2.5rem 2rem 2rem;
+  border-bottom: 3px solid var(--amber);
+}
+.hero h2 { font-size: 1.5rem; font-weight: 700; }
+.hero p  { font-size: .9rem; opacity: .75; margin-top: .3rem; max-width: 560px; }
+
+/* ── Stats Bar ── */
+.stats-bar {
+  display: flex; gap: 1rem; padding: 1rem 2rem;
+  background: var(--white); border-bottom: 1px solid var(--gray2);
+  flex-wrap: wrap;
+}
+.stat-card {
+  flex: 1; min-width: 100px;
+  background: var(--gray1); border-radius: var(--radius);
+  padding: .65rem 1rem; text-align: center; border: 1px solid var(--gray2);
+}
+.stat-card .num { font-size: 1.6rem; font-weight: 800; color: var(--navy); }
+.stat-card .lbl { font-size: .7rem; color: var(--sub); text-transform: uppercase; letter-spacing: .05em; }
+.stat-card.amber .num { color: var(--amber); }
+.stat-card.green .num { color: var(--green); }
+.stat-card.red   .num { color: var(--red);   }
+
+/* ── Main Layout ── */
+main { flex: 1; padding: 1.5rem 2rem; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+/* ── Tabs / Pages ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── Card ── */
+.card {
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 1.5rem; margin-bottom: 1.25rem;
+}
+.card h3 {
+  font-size: 1rem; font-weight: 700; color: var(--navy);
+  margin-bottom: 1rem; padding-bottom: .5rem;
+  border-bottom: 2px solid var(--gray2);
+}
+
+/* ── Form ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+.form-grid .full { grid-column: 1/-1; }
+
+label { display: block; font-size: .8rem; font-weight: 600; color: var(--sub); margin-bottom: .3rem; }
+input, select, textarea {
+  width: 100%; padding: .6rem .85rem;
+  border: 1.5px solid var(--gray2); border-radius: 7px;
+  font-size: .88rem; color: var(--text);
+  background: var(--gray1); transition: border .2s;
+  font-family: inherit;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--amber); background: var(--white);
+}
+textarea { resize: vertical; min-height: 90px; }
+
+.checkbox-row { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
+.checkbox-row input[type=checkbox] { width: auto; }
+
+/* ── Buttons ── */
+.btn {
+  padding: .6rem 1.4rem; border-radius: 7px; border: none;
+  font-weight: 700; font-size: .85rem; cursor: pointer; transition: all .2s;
+}
+.btn-primary { background: var(--navy); color: var(--white); }
+.btn-primary:hover { background: var(--navy2); transform: translateY(-1px); }
+.btn-amber { background: var(--amber); color: var(--navy); }
+.btn-amber:hover { background: var(--amber2); }
+.btn-red   { background: var(--red);   color: var(--white); }
+.btn-green { background: var(--green); color: var(--white); }
+.btn-sm    { padding: .35rem .8rem; font-size: .78rem; }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* ── Badge / Status ── */
+.badge {
+  display: inline-block; padding: .2rem .65rem;
+  border-radius: 20px; font-size: .72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.badge-pending   { background: #fff3cd; color: #856404; }
+.badge-inreview  { background: #cce5ff; color: #004085; }
+.badge-resolved  { background: #d4edda; color: #155724; }
+.badge-rejected  { background: #f8d7da; color: #721c24; }
+.badge-escalated { background: #f3d5f5; color: #6b1a7c; }
+
+.badge-low      { background: #e8f5e9; color: #2e7d32; }
+.badge-medium   { background: #fff8e1; color: #f57f17; }
+.badge-high     { background: #fce4ec; color: #b71c1c; }
+.badge-critical { background: #b71c1c; color: #fff; }
+
+/* ── Complaint Table ── */
+.complaints-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.complaints-table th {
+  background: var(--navy); color: var(--white);
+  padding: .65rem 1rem; text-align: left; font-size: .78rem; letter-spacing: .04em;
+}
+.complaints-table td { padding: .6rem 1rem; border-bottom: 1px solid var(--gray2); }
+.complaints-table tr:hover td { background: var(--gray1); }
+.complaints-table .title-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Timeline ── */
+.timeline { padding-left: 1rem; }
+.tl-item { display: flex; gap: 1rem; margin-bottom: 1rem; position: relative; }
+.tl-item::before {
+  content: ''; position: absolute;
+  left: -1rem; top: 18px; bottom: -1rem;
+  width: 2px; background: var(--gray2);
+}
+.tl-item:last-child::before { display: none; }
+.tl-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--amber); flex-shrink: 0; margin-top: 5px;
+}
+.tl-content { flex: 1; }
+.tl-action { font-weight: 600; font-size: .85rem; }
+.tl-meta   { font-size: .75rem; color: var(--sub); margin-top: .15rem; }
+
+/* ── Progress Steps ── */
+.steps { display: flex; gap: 0; margin-bottom: 1.5rem; }
+.step {
+  flex: 1; text-align: center; padding: .5rem; font-size: .75rem;
+  background: var(--gray2); position: relative;
+  border-right: 2px solid var(--white);
+}
+.step:first-child { border-radius: 6px 0 0 6px; }
+.step:last-child  { border-radius: 0 6px 6px 0; border-right: none; }
+.step.done  { background: var(--navy);  color: var(--white); }
+.step.active{ background: var(--amber); color: var(--navy); font-weight: 700; }
+
+/* ── Filter Row ── */
+.filter-row { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: flex-end; }
+.filter-row select { width: auto; flex: 1; min-width: 130px; }
+.filter-row input  { flex: 2; min-width: 180px; }
+
+/* ── Search ── */
+#searchInput { max-width: 300px; }
+
+/* ── Star Rating ── */
+.stars { display: flex; gap: .25rem; }
+.star { font-size: 1.4rem; cursor: pointer; color: var(--gray3); transition: color .15s; }
+.star.on { color: var(--amber); }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 200; display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: 12px;
+  padding: 1.75rem; max-width: 600px; width: 95%;
+  max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,.2);
+}
+.modal h3 { color: var(--navy); margin-bottom: 1rem; }
+.modal-close { float: right; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--sub); }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  background: var(--navy); color: var(--white);
+  padding: .8rem 1.4rem; border-radius: 8px;
+  font-size: .85rem; z-index: 300;
+  transform: translateY(60px); opacity: 0;
+  transition: all .3s; pointer-events: none;
+  border-left: 4px solid var(--amber);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── Notice ── */
+.notice {
+  background: #fff8e1; border: 1px solid #ffe082;
+  border-radius: 8px; padding: .85rem 1rem;
+  font-size: .84rem; color: #5d4037; margin-bottom: 1rem;
+}
+.notice.info { background: #e3f2fd; border-color: #90caf9; color: #0d47a1; }
+
+/* ── Empty ── */
+.empty { text-align: center; padding: 3rem; color: var(--sub); font-size: .9rem; }
+.empty .icon { font-size: 2.5rem; margin-bottom: .5rem; }
+
+/* ── Footer ── */
+footer {
+  background: var(--navy); color: rgba(255,255,255,.65);
+  text-align: center; padding: 1.1rem 2rem;
+  font-size: .8rem; margin-top: auto;
+  border-top: 3px solid var(--amber);
+}
+footer strong { color: var(--amber2); }
+
+/* ── Responsive ── */
+@media(max-width: 700px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .stats-bar { gap: .5rem; }
+  nav button { padding: .4rem .55rem; font-size: .78rem; }
+  .brand-text p { display: none; }
+  main { padding: 1rem; }
+  header { padding: 0 1rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">🎓</div>
+    <div class="brand-text">
+      <h1>AU Complaint System</h1>
+      <p>Air University · Aerospace &amp; Aviation Campus, Kamra</p>
+    </div>
+  </div>
+  <nav>
+    <button class="active" onclick="showPage('home')">Dashboard</button>
+    <button onclick="showPage('submit')">Submit</button>
+    <button onclick="showPage('track')">My Complaints</button>
+    <button onclick="showPage('admin')">Admin Panel</button>
+  </nav>
+  <div style="display:flex;align-items:center;gap:.75rem;flex-shrink:0">
+    <div id="walletInfo">Not connected</div>
+    <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+</header>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <h2>Transparent. Accountable. Tamper-Resistant.</h2>
+  <p>Blockchain-powered complaint management ensuring every grievance is recorded immutably and resolved with full accountability.</p>
+</div>
+
+<!-- ═══ STATS BAR ═══ -->
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="num" id="st-total">–</div>
+    <div class="lbl">Total</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="num" id="st-pending">–</div>
+    <div class="lbl">Pending</div>
+  </div>
+  <div class="stat-card">
+    <div class="num" id="st-review">–</div>
+    <div class="lbl">In Review</div>
+  </div>
+  <div class="stat-card green">
+    <div class="num" id="st-resolved">–</div>
+    <div class="lbl">Resolved</div>
+  </div>
+  <div class="stat-card red">
+    <div class="num" id="st-rejected">–</div>
+    <div class="lbl">Rejected</div>
+  </div>
+  <div class="stat-card">
+    <div class="num" id="st-escalated">–</div>
+    <div class="lbl">Escalated</div>
+  </div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<main>
+
+  <!-- ── Dashboard ── -->
+  <div class="page active" id="page-home">
+    <div class="card">
+      <h3>📋 Recent Complaints</h3>
+      <div class="filter-row">
+        <select id="filterCat" onchange="loadAll()">
+          <option value="">All Categories</option>
+          <option value="0">Academic</option>
+          <option value="1">Facilities</option>
+          <option value="2">Transportation</option>
+          <option value="3">Examination</option>
+          <option value="4">Laboratory</option>
+          <option value="5">Hostel</option>
+          <option value="6">Administrative</option>
+          <option value="7">Other</option>
+        </select>
+        <select id="filterStatus" onchange="loadAll()">
+          <option value="">All Statuses</option>
+          <option value="0">Pending</option>
+          <option value="1">In Review</option>
+          <option value="2">Resolved</option>
+          <option value="3">Rejected</option>
+          <option value="4">Escalated</option>
+        </select>
+        <input id="searchInput" placeholder="🔍 Search title..." oninput="loadAll()"/>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="complaints-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Title</th><th>Category</th>
+              <th>Priority</th><th>Status</th><th>Submitted</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="allComplaintsBody">
+            <tr><td colspan="7" class="empty"><div class="icon">📭</div>Connect wallet to load complaints</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Submit ── -->
+  <div class="page" id="page-submit">
+    <div class="card">
+      <h3>📝 Submit a New Complaint</h3>
+      <div class="notice">
+        Your complaint is recorded on-chain — immutable, transparent, and auditable.
+      </div>
+
+      <!-- Progress steps -->
+      <div class="steps" id="formSteps">
+        <div class="step active" id="step1">1. Your Info</div>
+        <div class="step" id="step2">2. Complaint Details</div>
+        <div class="step" id="step3">3. Review &amp; Submit</div>
+      </div>
+
+      <div id="formPart1">
+        <div class="form-grid">
+          <div>
+            <label>Full Name</label>
+            <input id="sName" placeholder="Noor Malaika"/>
+          </div>
+          <div>
+            <label>Registration Number</label>
+            <input id="sReg" placeholder="235129"/>
+          </div>
+        </div>
+        <div class="checkbox-row" style="margin-top:.85rem">
+          <input type="checkbox" id="anonCheck" onchange="toggleAnon()"/>
+          <label style="margin:0;font-size:.85rem">Submit anonymously (hides your name and reg number)</label>
+        </div>
+        <div style="margin-top:1.25rem">
+          <button class="btn btn-primary" onclick="nextStep(2)">Next →</button>
+        </div>
+      </div>
+
+      <div id="formPart2" style="display:none">
+        <div class="form-grid">
+          <div>
+            <label>Category</label>
+            <select id="sCat">
+              <option value="0">Academic Affairs</option>
+              <option value="1">Campus Facilities</option>
+              <option value="2">Transportation</option>
+              <option value="3">Examination</option>
+              <option value="4">Laboratory</option>
+              <option value="5">Hostel Services</option>
+              <option value="6">Administrative</option>
+              <option value="7">Other</option>
+            </select>
+          </div>
+          <div>
+            <label>Priority</label>
+            <select id="sPri">
+              <option value="0">Low</option>
+              <option value="1">Medium</option>
+              <option value="2">High</option>
+              <option value="3">Critical</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>Complaint Title</label>
+            <input id="sTitle" placeholder="Brief, descriptive title (max 80 chars)"/>
+          </div>
+          <div class="full">
+            <label>Detailed Description</label>
+            <textarea id="sDesc" placeholder="Describe the issue clearly — include dates, locations, people involved, and any previous attempts to resolve it."></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:.75rem;margin-top:1rem">
+          <button class="btn btn-primary" style="background:var(--gray3);color:var(--text)" onclick="nextStep(1)">← Back</button>
+          <button class="btn btn-primary" onclick="nextStep(3)">Next →</button>
+        </div>
+      </div>
+
+      <div id="formPart3" style="display:none">
+        <div id="reviewBox" class="notice info"></div>
+        <div style="display:flex;gap:.75rem;margin-top:1rem">
+          <button class="btn btn-primary" style="background:var(--gray3);color:var(--text)" onclick="nextStep(2)">← Back</button>
+          <button class="btn btn-amber" id="submitBtn" onclick="submitComplaint()">⛓ Submit on Blockchain</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── My Complaints ── -->
+  <div class="page" id="page-track">
+    <div class="card">
+      <h3>📁 My Complaints</h3>
+      <div id="myComplaintsList">
+        <div class="empty"><div class="icon">🔗</div>Connect your wallet to view your complaints</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Admin Panel ── -->
+  <div class="page" id="page-admin">
+    <div class="card">
+      <h3>🔐 Admin Panel</h3>
+      <div class="notice" id="adminNotice">Connect as admin wallet to manage complaints.</div>
+      <div id="adminContent" style="display:none">
+        <div class="form-grid" style="max-width:500px;margin-bottom:1.25rem">
+          <div>
+            <label>Complaint ID</label>
+            <input id="adminId" type="number" placeholder="e.g. 1" min="1"/>
+          </div>
+          <div>
+            <label>New Status</label>
+            <select id="adminStatus">
+              <option value="0">Pending</option>
+              <option value="1">In Review</option>
+              <option value="2">Resolved</option>
+              <option value="3">Rejected</option>
+              <option value="4">Escalated</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>Admin Note / Reason</label>
+            <textarea id="adminNote" placeholder="Explain the action taken or reason for status change..."></textarea>
+          </div>
+        </div>
+        <button class="btn btn-amber" onclick="adminUpdate()">Update Status</button>
+        <button class="btn btn-primary" style="margin-left:.75rem" onclick="loadComplaintForAdmin()">Preview Complaint</button>
+        <div id="adminPreview" style="margin-top:1.25rem"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div>Air University Aerospace &amp; Aviation Campus, Kamra — Department of Computer Science</div>
+  <div style="margin-top:.3rem">
+    Developed by <strong>Muhammad Noor</strong> &nbsp;|&nbsp; Registration No: <strong>230901-069</strong>
+  </div>
+  <div style="margin-top:.3rem; font-size:.72rem; opacity:.5">
+    Blockchain-Based University Complaint Management System · Spring 2026
+  </div>
+</footer>
+
+<!-- ═══ DETAIL MODAL ═══ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3 id="modalTitle">Complaint Detail</h3>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast"></div>
+
+<script>
+// ── Contract Config ─────────────────────────────────────────────────────────
+const CONTRACT_ADDRESS = "0xd9145CCE52D386f254917e481eB44e9943F39138"; // Replace after deploy
+const ABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_admin",
+        "type": "address"
+      }
+    ],
+    "name": "addAdmin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "admin",
+        "type": "address"
+      }
+    ],
+    "name": "AdminAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "admin",
+        "type": "address"
+      }
+    ],
+    "name": "AdminRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "name": "ComplaintEscalated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "rating",
+        "type": "uint8"
+      }
+    ],
+    "name": "ComplaintRated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "student",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum UniversityComplaints.Category",
+        "name": "category",
+        "type": "uint8"
+      }
+    ],
+    "name": "ComplaintSubmitted",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "name": "escalateComplaint",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_rating",
+        "type": "uint8"
+      }
+    ],
+    "name": "rateResolution",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_admin",
+        "type": "address"
+      }
+    ],
+    "name": "removeAdmin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum UniversityComplaints.Status",
+        "name": "oldStatus",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum UniversityComplaints.Status",
+        "name": "newStatus",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "admin",
+        "type": "address"
+      }
+    ],
+    "name": "StatusUpdated",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_studentName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_regNumber",
+        "type": "string"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_category",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_priority",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "_title",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_description",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "_isAnonymous",
+        "type": "bool"
+      }
+    ],
+    "name": "submitComplaint",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_newStatus",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "_adminNote",
+        "type": "string"
+      }
+    ],
+    "name": "updateStatus",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "admins",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum UniversityComplaints.Category",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "categoryCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "complaints",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "student",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "studentName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "regNumber",
+        "type": "string"
+      },
+      {
+        "internalType": "enum UniversityComplaints.Category",
+        "name": "category",
+        "type": "uint8"
+      },
+      {
+        "internalType": "enum UniversityComplaints.Priority",
+        "name": "priority",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "internalType": "enum UniversityComplaints.Status",
+        "name": "status",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "submittedAt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "updatedAt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "adminNote",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "isAnonymous",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint8",
+        "name": "rating",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bool",
+        "name": "isEscalated",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "name": "getActivityLog",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "actor",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "action",
+            "type": "string"
+          },
+          {
+            "internalType": "enum UniversityComplaints.Status",
+            "name": "newStatus",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct UniversityComplaints.ActivityLog[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllIds",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "name": "getComplaint",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "id",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "student",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "studentName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "regNumber",
+            "type": "string"
+          },
+          {
+            "internalType": "enum UniversityComplaints.Category",
+            "name": "category",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum UniversityComplaints.Priority",
+            "name": "priority",
+            "type": "uint8"
+          },
+          {
+            "internalType": "string",
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "internalType": "enum UniversityComplaints.Status",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "submittedAt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "updatedAt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "adminNote",
+            "type": "string"
+          },
+          {
+            "internalType": "bool",
+            "name": "isAnonymous",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint8",
+            "name": "rating",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bool",
+            "name": "isEscalated",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct UniversityComplaints.Complaint",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getMyComplaints",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getStats",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "pending",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "inReview",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "resolved",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rejected",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "escalated",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTotalComplaints",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum UniversityComplaints.Status",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "statusCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+// ── State ───────────────────────────────────────────────────────────────────
+let provider, signer, contract, userAddress;
+const CATS   = ["Academic","Facilities","Transport","Examination","Laboratory","Hostel","Administrative","Other"];
+const STATS  = ["Pending","In Review","Resolved","Rejected","Escalated"];
+const PRIS   = ["Low","Medium","High","Critical"];
+const S_CLS  = ["badge-pending","badge-inreview","badge-resolved","badge-rejected","badge-escalated"];
+const P_CLS  = ["badge-low","badge-medium","badge-high","badge-critical"];
+let currentStep = 1;
+
+// ── Wallet ──────────────────────────────────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) { toast("MetaMask not found! Install it to use this app.", true); return; }
+  try {
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer      = provider.getSigner();
+    userAddress = await signer.getAddress();
+    contract    = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+    document.getElementById("connectBtn").textContent = "Connected ✓";
+    document.getElementById("connectBtn").style.background = "var(--green)";
+    document.getElementById("walletInfo").textContent =
+      userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+
+    const isAdmin = await contract.admins(userAddress).catch(()=>false);
+    if (isAdmin) {
+      document.getElementById("adminNotice").style.display = "none";
+      document.getElementById("adminContent").style.display = "block";
+    }
+
+    await loadStats();
+    await loadAll();
+    toast("Wallet connected successfully!");
+  } catch(e) {
+    toast("Connection failed: " + e.message, true);
+  }
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  if (!contract) return;
+  try {
+    const s = await contract.getStats();
+    document.getElementById("st-total").textContent    = s[0].toString();
+    document.getElementById("st-pending").textContent  = s[1].toString();
+    document.getElementById("st-review").textContent   = s[2].toString();
+    document.getElementById("st-resolved").textContent = s[3].toString();
+    document.getElementById("st-rejected").textContent = s[4].toString();
+    document.getElementById("st-escalated").textContent= s[5].toString();
+  } catch{}
+}
+
+// ── Load All Complaints ──────────────────────────────────────────────────────
+async function loadAll() {
+  if (!contract) return;
+  const tbody = document.getElementById("allComplaintsBody");
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--sub)">Loading…</td></tr>`;
+  try {
+    const ids     = await contract.getAllIds();
+    const catF    = document.getElementById("filterCat").value;
+    const statF   = document.getElementById("filterStatus").value;
+    const search  = document.getElementById("searchInput").value.toLowerCase();
+    let rows = "";
+    const fetched = await Promise.all(ids.map(id => contract.getComplaint(id)));
+    fetched.reverse().slice(0,50).forEach(c => {
+      if (catF  !== "" && c[4].toString() !== catF)   return;
+      if (statF !== "" && c[8].toString() !== statF)  return;
+      if (search && !c[6].toLowerCase().includes(search)) return;
+      rows += `<tr>
+        <td>${c[0]}</td>
+        <td class="title-cell" title="${esc(c[6])}">${esc(c[6])}</td>
+        <td>${CATS[c[4]]}</td>
+        <td><span class="badge ${P_CLS[c[5]]}">${PRIS[c[5]]}</span></td>
+        <td><span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span></td>
+        <td>${fmtDate(c[9])}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="openDetail(${c[0]})">View</button></td>
+      </tr>`;
+    });
+    tbody.innerHTML = rows || `<tr><td colspan="7"><div class="empty"><div class="icon">📭</div>No complaints found</div></td></tr>`;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading data</td></tr>`;
+  }
+}
+
+// ── My Complaints ────────────────────────────────────────────────────────────
+async function loadMyComplaints() {
+  if (!contract) return;
+  const el = document.getElementById("myComplaintsList");
+  el.innerHTML = "<div class='empty'>Loading…</div>";
+  try {
+    const ids = await contract.getMyComplaints();
+    if (!ids.length) { el.innerHTML = "<div class='empty'><div class='icon'>📭</div>You have no complaints yet</div>"; return; }
+    let html = "";
+    for (const id of [...ids].reverse()) {
+      const c = await contract.getComplaint(id);
+      html += `<div class="card" style="margin-bottom:.85rem;box-shadow:none;border:1px solid var(--gray2)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem">
+          <div>
+            <span style="font-size:.75rem;color:var(--sub)">#${c[0]} · ${CATS[c[4]]}</span>
+            <div style="font-weight:700;margin:.2rem 0">${esc(c[6])}</div>
+            <span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span>
+            <span class="badge ${P_CLS[c[5]]}" style="margin-left:.3rem">${PRIS[c[5]]}</span>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:.75rem;color:var(--sub)">${fmtDate(c[9])}</div>
+            <button class="btn btn-sm btn-primary" style="margin-top:.4rem" onclick="openDetail(${c[0]})">Track</button>
+            ${c[8]==2 && c[13]==0 ? `<button class="btn btn-sm btn-amber" style="margin-top:.4rem;margin-left:.3rem" onclick="openRating(${c[0]})">Rate</button>` : ''}
+          </div>
+        </div>
+        ${c[11] ? `<div style="margin-top:.6rem;background:var(--gray1);padding:.6rem .85rem;border-radius:7px;font-size:.82rem"><b>Admin Note:</b> ${esc(c[11])}</div>` : ''}
+      </div>`;
+    }
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = "<div class='empty'>Error loading your complaints</div>"; }
+}
+
+// ── Submit Complaint ─────────────────────────────────────────────────────────
+function nextStep(n) {
+  if (n === 2) {
+    // validate step 1
+    const anon = document.getElementById("anonCheck").checked;
+    if (!anon) {
+      if (!document.getElementById("sName").value.trim()) { toast("Enter your name",true); return; }
+      if (!document.getElementById("sReg").value.trim())  { toast("Enter registration number",true); return; }
+    }
+  }
+  if (n === 3) {
+    if (!document.getElementById("sTitle").value.trim()) { toast("Enter a title",true); return; }
+    if (!document.getElementById("sDesc").value.trim())  { toast("Enter description",true); return; }
+    buildReview();
+  }
+  currentStep = n;
+  [1,2,3].forEach(i => {
+    document.getElementById("formPart"+i).style.display = i===n ? "block" : "none";
+    const s = document.getElementById("step"+i);
+    s.className = "step" + (i < n ? " done" : i===n ? " active" : "");
+  });
+}
+
+function buildReview() {
+  const anon = document.getElementById("anonCheck").checked;
+  document.getElementById("reviewBox").innerHTML = `
+    <b>Review your complaint before submitting:</b><br/><br/>
+    <b>Name:</b> ${anon ? "Anonymous" : esc(document.getElementById("sName").value)}<br/>
+    <b>Reg No:</b> ${anon ? "Hidden" : esc(document.getElementById("sReg").value)}<br/>
+    <b>Category:</b> ${CATS[document.getElementById("sCat").value]}<br/>
+    <b>Priority:</b> ${PRIS[document.getElementById("sPri").value]}<br/>
+    <b>Title:</b> ${esc(document.getElementById("sTitle").value)}<br/>
+    <b>Description:</b> ${esc(document.getElementById("sDesc").value)}
+  `;
+}
+
+async function submitComplaint() {
+  if (!contract) { toast("Connect wallet first",true); return; }
+  const btn  = document.getElementById("submitBtn");
+  const anon = document.getElementById("anonCheck").checked;
+  btn.disabled = true; btn.textContent = "Submitting…";
+  try {
+    const tx = await contract.submitComplaint(
+      document.getElementById("sName").value || "Anonymous",
+      document.getElementById("sReg").value  || "XXXX-XXXX",
+      parseInt(document.getElementById("sCat").value),
+      parseInt(document.getElementById("sPri").value),
+      document.getElementById("sTitle").value.trim(),
+      document.getElementById("sDesc").value.trim(),
+      anon
+    );
+    toast("Transaction sent — waiting for confirmation…");
+    await tx.wait();
+    toast("Complaint submitted successfully! ✅");
+    await loadStats(); await loadAll();
+    // reset
+    nextStep(1);
+    ["sName","sReg","sTitle","sDesc"].forEach(id=>document.getElementById(id).value="");
+    document.getElementById("anonCheck").checked = false;
+    showPage("track");
+    await loadMyComplaints();
+  } catch(e) {
+    toast("Error: " + (e.reason || e.message), true);
+  }
+  btn.disabled = false; btn.textContent = "⛓ Submit on Blockchain";
+}
+
+// ── Admin Update ─────────────────────────────────────────────────────────────
+async function adminUpdate() {
+  if (!contract) { toast("Connect wallet first",true); return; }
+  const id   = parseInt(document.getElementById("adminId").value);
+  const st   = parseInt(document.getElementById("adminStatus").value);
+  const note = document.getElementById("adminNote").value.trim();
+  if (!id || !note) { toast("Fill in all fields",true); return; }
+  try {
+    const tx = await contract.updateStatus(id, st, note);
+    toast("Updating…");
+    await tx.wait();
+    toast("Status updated ✅");
+    await loadStats(); await loadAll();
+  } catch(e) { toast("Error: " + (e.reason || e.message), true); }
+}
+
+async function loadComplaintForAdmin() {
+  const id = parseInt(document.getElementById("adminId").value);
+  if (!id || !contract) return;
+  try {
+    const c = await contract.getComplaint(id);
+    document.getElementById("adminPreview").innerHTML = `
+      <div class="card" style="box-shadow:none;border:1px solid var(--gray2)">
+        <b>#${c[0]} — ${esc(c[6])}</b><br/>
+        <small>${CATS[c[4]]} · <span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span> · 
+        <span class="badge ${P_CLS[c[5]]}">${PRIS[c[5]]}</span></small><br/><br/>
+        ${esc(c[7])}
+      </div>`;
+  } catch(e) { toast("Could not load complaint",true); }
+}
+
+// ── Detail Modal ─────────────────────────────────────────────────────────────
+async function openDetail(id) {
+  if (!contract) { toast("Connect wallet first",true); return; }
+  try {
+    const c   = await contract.getComplaint(id);
+    const log = await contract.getActivityLog(id);
+    document.getElementById("modalTitle").textContent = `#${c[0]}: ${c[6]}`;
+
+    const tlItems = log.map(l => `
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-content">
+          <div class="tl-action">${esc(l[2])}</div>
+          <div class="tl-meta">${l[1]} · ${fmtDateFull(l[0])} · <span class="badge ${S_CLS[l[3]]}">${STATS[l[3]]}</span></div>
+        </div>
+      </div>`).join("");
+
+    document.getElementById("modalBody").innerHTML = `
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
+        <span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span>
+        <span class="badge ${P_CLS[c[5]]}">${PRIS[c[5]]}</span>
+        <span class="badge" style="background:var(--gray2);color:var(--sub)">${CATS[c[4]]}</span>
+        ${c[14] ? '<span class="badge" style="background:#f3d5f5;color:#6b1a7c">Escalated</span>' : ''}
+      </div>
+      <table style="width:100%;font-size:.84rem;border-collapse:collapse;margin-bottom:1.25rem">
+        <tr><td style="padding:.3rem 0;color:var(--sub);width:110px">Submitted by</td>
+            <td>${c[12] ? "Anonymous" : esc(c[2]) + " · " + esc(c[3])}</td></tr>
+        <tr><td style="padding:.3rem 0;color:var(--sub)">Filed on</td>
+            <td>${fmtDateFull(c[9])}</td></tr>
+        <tr><td style="padding:.3rem 0;color:var(--sub)">Last updated</td>
+            <td>${fmtDateFull(c[10])}</td></tr>
+        ${c[11] ? `<tr><td style="padding:.3rem 0;color:var(--sub)">Admin note</td>
+            <td>${esc(c[11])}</td></tr>` : ''}
+        ${c[13] > 0 ? `<tr><td style="padding:.3rem 0;color:var(--sub)">Rating</td>
+            <td>${"★".repeat(c[13])}${"☆".repeat(5-c[13])}</td></tr>` : ''}
+      </table>
+      <div style="background:var(--gray1);padding:.85rem;border-radius:8px;font-size:.85rem;margin-bottom:1.25rem;line-height:1.6">
+        ${esc(c[7])}
+      </div>
+      <h4 style="font-size:.85rem;color:var(--navy);margin-bottom:.75rem">Activity Timeline</h4>
+      <div class="timeline">${tlItems}</div>
+    `;
+    document.getElementById("detailModal").classList.add("open");
+  } catch(e) { toast("Error: " + e.message, true); }
+}
+
+function closeModal() { document.getElementById("detailModal").classList.remove("open"); }
+
+// ── Rating ────────────────────────────────────────────────────────────────────
+let ratingTarget = 0, selectedRating = 0;
+function openRating(id) {
+  ratingTarget = id; selectedRating = 0;
+  document.getElementById("modalTitle").textContent = "Rate Resolution";
+  document.getElementById("modalBody").innerHTML = `
+    <p style="margin-bottom:1rem;font-size:.9rem">How satisfied are you with how complaint #${id} was resolved?</p>
+    <div class="stars" id="starRow">
+      ${[1,2,3,4,5].map(i=>`<span class="star" onclick="setStar(${i})" id="s${i}">☆</span>`).join("")}
+    </div>
+    <button class="btn btn-amber" style="margin-top:1.25rem" onclick="submitRating()">Submit Rating</button>
+  `;
+  document.getElementById("detailModal").classList.add("open");
+}
+
+function setStar(n) {
+  selectedRating = n;
+  [1,2,3,4,5].forEach(i => {
+    document.getElementById("s"+i).textContent = i<=n ? "★" : "☆";
+    document.getElementById("s"+i).className   = "star" + (i<=n ? " on" : "");
+  });
+}
+
+async function submitRating() {
+  if (!selectedRating) { toast("Select a rating",true); return; }
+  try {
+    const tx = await contract.rateResolution(ratingTarget, selectedRating);
+    toast("Submitting rating…");
+    await tx.wait();
+    toast("Thank you for your feedback! ⭐");
+    closeModal();
+    await loadMyComplaints();
+  } catch(e) { toast("Error: " + e.message, true); }
+}
+
+// ── Anonymous toggle ─────────────────────────────────────────────────────────
+function toggleAnon() {
+  const anon = document.getElementById("anonCheck").checked;
+  document.getElementById("sName").disabled = anon;
+  document.getElementById("sReg").disabled  = anon;
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById("page-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach((b,i) => {
+    b.classList.toggle("active", ["home","submit","track","admin"][i]===name);
+  });
+  if (name==="track" && contract) loadMyComplaints();
+  if (name==="home"  && contract) loadAll();
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function fmtDate(ts) {
+  const d = new Date(Number(ts)*1000);
+  return d.toLocaleDateString("en-PK",{year:"numeric",month:"short",day:"numeric"});
+}
+function fmtDateFull(ts) {
+  const d = new Date(Number(ts)*1000);
+  return d.toLocaleString("en-PK",{year:"numeric",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+function toast(msg, isErr=false) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.borderLeftColor = isErr ? "var(--red)" : "var(--amber)";
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 3500);
+}
+
+// Close modal on overlay click
+document.getElementById("detailModal").addEventListener("click", e => {
+  if (e.target.id==="detailModal") closeModal();
+});
+</script>
+</body>
+</html>
