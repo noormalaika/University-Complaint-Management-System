@@ -1214,6 +1214,11 @@ async function loadStats() {
 }
 
 // ── Load All Complaints ──────────────────────────────────────────────────────
+// ── Fixed Date Formatting (Prevents the RangeError Crash) ────────────────────
+
+
+// ── Fixed Load All Complaints ──────────────────────────────────────────────────────
+// ── Fixed Load All Complaints ──────────────────────────────────────────────────────
 async function loadAll() {
   if (!contract) return;
   const tbody = document.getElementById("allComplaintsBody");
@@ -1224,57 +1229,87 @@ async function loadAll() {
     const statF   = document.getElementById("filterStatus").value;
     const search  = document.getElementById("searchInput").value.toLowerCase();
     let rows = "";
+    
     const fetched = await Promise.all(ids.map(id => contract.getComplaint(id)));
+    
     fetched.reverse().slice(0,50).forEach(c => {
-      if (catF  !== "" && c[4].toString() !== catF)   return;
-      if (statF !== "" && c[8].toString() !== statF)  return;
-      if (search && !c[6].toLowerCase().includes(search)) return;
+      if (!c) return;
+
+      // Extract using Named Keys matching your Solidity Complaint Struct exactly
+      const idStr    = c.id.toString();
+      const title    = c.title || "";
+      const catVal   = Number(c.category);
+      const priVal   = Number(c.priority);
+      const statVal  = Number(c.status);
+      const dateRaw  = c.submittedAt;
+
+      // Filter processing using primitive numeric strings
+      if (catF  !== "" && catVal.toString() !== catF)   return;
+      if (statF !== "" && statVal.toString() !== statF)  return;
+      if (search && !title.toLowerCase().includes(search)) return;
+      
       rows += `<tr>
-        <td>${c[0]}</td>
-        <td class="title-cell" title="${esc(c[6])}">${esc(c[6])}</td>
-        <td>${CATS[c[4]]}</td>
-        <td><span class="badge ${P_CLS[c[5]]}">${PRIS[c[5]]}</span></td>
-        <td><span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span></td>
-        <td>${fmtDate(c[9])}</td>
-        <td><button class="btn btn-sm btn-primary" onclick="openDetail(${c[0]})">View</button></td>
+        <td>${idStr}</td>
+        <td class="title-cell" title="${esc(title)}">${esc(title)}</td>
+        <td>${CATS[catVal] || "Other"}</td>
+        <td><span class="badge ${P_CLS[priVal]}">${PRIS[priVal]}</span></td>
+        <td><span class="badge ${S_CLS[statVal]}">${STATS[statVal]}</span></td>
+        <td>${fmtDate(dateRaw)}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="openDetail(${idStr})">View</button></td>
       </tr>`;
     });
     tbody.innerHTML = rows || `<tr><td colspan="7"><div class="empty"><div class="icon">📭</div>No complaints found</div></td></tr>`;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading data</td></tr>`;
+    console.error("Diagnostic error log for exam review:", e);
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading data: ${e.message}</td></tr>`;
   }
 }
 
-// ── My Complaints ────────────────────────────────────────────────────────────
+// ── Fixed My Complaints ────────────────────────────────────────────────────────────
 async function loadMyComplaints() {
   if (!contract) return;
   const el = document.getElementById("myComplaintsList");
   el.innerHTML = "<div class='empty'>Loading…</div>";
   try {
     const ids = await contract.getMyComplaints();
-    if (!ids.length) { el.innerHTML = "<div class='empty'><div class='icon'>📭</div>You have no complaints yet</div>"; return; }
+    if (!ids || !ids.length) { el.innerHTML = "<div class='empty'><div class='icon'>📭</div>You have no complaints yet</div>"; return; }
     let html = "";
+    
     for (const id of [...ids].reverse()) {
       const c = await contract.getComplaint(id);
+      if (!c) continue;
+
+      const idStr     = c.id.toString();
+      const title     = c.title || "";
+      const catVal    = Number(c.category);
+      const priVal    = Number(c.priority);
+      const statVal   = Number(c.status);
+      const dateRaw   = c.submittedAt;
+      const adminNote = c.adminNote || "";
+      const ratingVal = Number(c.rating);
+
       html += `<div class="card" style="margin-bottom:.85rem;box-shadow:none;border:1px solid var(--gray2)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem">
           <div>
-            <span style="font-size:.75rem;color:var(--sub)">#${c[0]} · ${CATS[c[4]]}</span>
-            <div style="font-weight:700;margin:.2rem 0">${esc(c[6])}</div>
-            <span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span>
-            <span class="badge ${P_CLS[c[5]]}" style="margin-left:.3rem">${PRIS[c[5]]}</span>
+            <span style="font-size:.75rem;color:var(--sub)">#${idStr} · ${CATS[catVal] || "Other"}</span>
+            <div style="font-weight:700;margin:.2rem 0">${esc(title)}</div>
+            <span class="badge ${S_CLS[statVal]}">${STATS[statVal]}</span>
+            <span class="badge ${P_CLS[priVal]}" style="margin-left:.3rem">${PRIS[priVal]}</span>
           </div>
           <div style="text-align:right">
-            <div style="font-size:.75rem;color:var(--sub)">${fmtDate(c[9])}</div>
-            <button class="btn btn-sm btn-primary" style="margin-top:.4rem" onclick="openDetail(${c[0]})">Track</button>
-            ${c[8]==2 && c[13]==0 ? `<button class="btn btn-sm btn-amber" style="margin-top:.4rem;margin-left:.3rem" onclick="openRating(${c[0]})">Rate</button>` : ''}
+            <div style="font-size:.75rem;color:var(--sub)">${fmtDate(dateRaw)}</div>
+            <button class="btn btn-sm btn-primary" style="margin-top:.4rem" onclick="openDetail(${idStr})">Track</button>
+            ${statVal === 2 && ratingVal === 0 ? `<button class="btn btn-sm btn-amber" style="margin-top:.4rem;margin-left:.3rem" onclick="openRating(${idStr})">Rate</button>` : ''}
           </div>
         </div>
-        ${c[11] ? `<div style="margin-top:.6rem;background:var(--gray1);padding:.6rem .85rem;border-radius:7px;font-size:.82rem"><b>Admin Note:</b> ${esc(c[11])}</div>` : ''}
+        ${adminNote ? `<div style="margin-top:.6rem;background:var(--gray1);padding:.6rem .85rem;border-radius:7px;font-size:.82rem"><b>Admin Note:</b> ${esc(adminNote)}</div>` : ''}
       </div>`;
     }
     el.innerHTML = html;
-  } catch(e) { el.innerHTML = "<div class='empty'>Error loading your complaints</div>"; }
+  } catch(e) { 
+    console.error(e);
+    el.innerHTML = "<div class='empty'>Error loading your complaints</div>"; 
+  }
 }
 
 // ── Submit Complaint ─────────────────────────────────────────────────────────
@@ -1360,59 +1395,86 @@ async function adminUpdate() {
   } catch(e) { toast("Error: " + (e.reason || e.message), true); }
 }
 
+// ── Fixed Admin Panel Complaint Loader (Named Key Fix) ───────────────────────
 async function loadComplaintForAdmin() {
   const id = parseInt(document.getElementById("adminId").value);
   if (!id || !contract) return;
   try {
     const c = await contract.getComplaint(id);
+    if (!c) return;
+
+    const idStr   = c.id.toString();
+    const title   = c.title || "";
+    const desc    = c.description || "";
+    const catVal  = Number(c.category);
+    const priVal  = Number(c.priority);
+    const statVal = Number(c.status);
+
     document.getElementById("adminPreview").innerHTML = `
       <div class="card" style="box-shadow:none;border:1px solid var(--gray2)">
-        <b>#${c[0]} — ${esc(c[6])}</b><br/>
-        <small>${CATS[c[4]]} · <span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span> · 
-        <span class="badge ${P_CLS[c[5]]}">${PRIS[c[5]]}</span></small><br/><br/>
-        ${esc(c[7])}
+        <b>#${idStr} — ${esc(title)}</b><br/>
+        <small>${CATS[catVal] || "Other"} · <span class="badge ${S_CLS[statVal]}">${STATS[statVal]}</span> · 
+        <span class="badge ${P_CLS[priVal]}">${PRIS[priVal]}</span></small><br/><br/>
+        ${esc(desc)}
       </div>`;
   } catch(e) { toast("Could not load complaint",true); }
 }
 
-// ── Detail Modal ─────────────────────────────────────────────────────────────
+// ── Fixed Detail Modal ─────────────────────────────────────────────────────────────
 async function openDetail(id) {
   if (!contract) { toast("Connect wallet first",true); return; }
   try {
     const c   = await contract.getComplaint(id);
     const log = await contract.getActivityLog(id);
-    document.getElementById("modalTitle").textContent = `#${c[0]}: ${c[6]}`;
+    
+    const idStr       = c.id.toString();
+    const title       = c.title || "";
+    const desc        = c.description || "";
+    const catVal      = Number(c.category);
+    const priVal      = Number(c.priority);
+    const statVal     = Number(c.status);
+    const studentName = c.studentName || "";
+    const regNumber   = c.regNumber || "";
+    const adminNote   = c.adminNote || "";
+    const ratingVal   = Number(c.rating);
+    const isAnon      = c.isAnonymous;
+    const isEsc       = c.isEscalated;
 
-    const tlItems = log.map(l => `
+    document.getElementById("modalTitle").textContent = `#${idStr}: ${title}`;
+
+    const tlItems = log.map(l => {
+      const logStatus = Number(l.newStatus);
+      return `
       <div class="tl-item">
         <div class="tl-dot"></div>
         <div class="tl-content">
-          <div class="tl-action">${esc(l[2])}</div>
-          <div class="tl-meta">${l[1]} · ${fmtDateFull(l[0])} · <span class="badge ${S_CLS[l[3]]}">${STATS[l[3]]}</span></div>
+          <div class="tl-action">${esc(l.action)}</div>
+          <div class="tl-meta">${esc(l.actor)} · ${fmtDateFull(l.timestamp)} · <span class="badge ${S_CLS[logStatus]}">${STATS[logStatus]}</span></div>
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
 
     document.getElementById("modalBody").innerHTML = `
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
-        <span class="badge ${S_CLS[c[8]]}">${STATS[c[8]]}</span>
-        <span class="badge ${P_CLS[c[5]]}">${PRIS[c[5]]}</span>
-        <span class="badge" style="background:var(--gray2);color:var(--sub)">${CATS[c[4]]}</span>
-        ${c[14] ? '<span class="badge" style="background:#f3d5f5;color:#6b1a7c">Escalated</span>' : ''}
+        <span class="badge ${S_CLS[statVal]}">${STATS[statVal]}</span>
+        <span class="badge ${P_CLS[priVal]}">${PRIS[priVal]}</span>
+        <span class="badge" style="background:var(--gray2);color:var(--sub)">${CATS[catVal]}</span>
+        ${isEsc ? '<span class="badge" style="background:#f3d5f5;color:#6b1a7c">Escalated</span>' : ''}
       </div>
       <table style="width:100%;font-size:.84rem;border-collapse:collapse;margin-bottom:1.25rem">
         <tr><td style="padding:.3rem 0;color:var(--sub);width:110px">Submitted by</td>
-            <td>${c[12] ? "Anonymous" : esc(c[2]) + " · " + esc(c[3])}</td></tr>
+            <td>${isAnon ? "Anonymous" : esc(studentName) + " · " + esc(regNumber)}</td></tr>
         <tr><td style="padding:.3rem 0;color:var(--sub)">Filed on</td>
-            <td>${fmtDateFull(c[9])}</td></tr>
+            <td>${fmtDateFull(c.submittedAt)}</td></tr>
         <tr><td style="padding:.3rem 0;color:var(--sub)">Last updated</td>
-            <td>${fmtDateFull(c[10])}</td></tr>
-        ${c[11] ? `<tr><td style="padding:.3rem 0;color:var(--sub)">Admin note</td>
-            <td>${esc(c[11])}</td></tr>` : ''}
-        ${c[13] > 0 ? `<tr><td style="padding:.3rem 0;color:var(--sub)">Rating</td>
-            <td>${"★".repeat(c[13])}${"☆".repeat(5-c[13])}</td></tr>` : ''}
+            <td>${fmtDateFull(c.updatedAt)}</td></tr>
+        ${adminNote ? `<tr><td style="padding:.3rem 0;color:var(--sub)">Admin note</td>
+            <td>${esc(adminNote)}</td></tr>` : ''}
+        ${ratingVal > 0 ? `<tr><td style="padding:.3rem 0;color:var(--sub)">Rating</td>
+            <td>${"★".repeat(ratingVal)}${"☆".repeat(5-ratingVal)}</td></tr>` : ''}
       </table>
       <div style="background:var(--gray1);padding:.85rem;border-radius:8px;font-size:.85rem;margin-bottom:1.25rem;line-height:1.6">
-        ${esc(c[7])}
+        ${esc(desc)}
       </div>
       <h4 style="font-size:.85rem;color:var(--navy);margin-bottom:.75rem">Activity Timeline</h4>
       <div class="timeline">${tlItems}</div>
@@ -1420,8 +1482,6 @@ async function openDetail(id) {
     document.getElementById("detailModal").classList.add("open");
   } catch(e) { toast("Error: " + e.message, true); }
 }
-
-function closeModal() { document.getElementById("detailModal").classList.remove("open"); }
 
 // ── Rating ────────────────────────────────────────────────────────────────────
 let ratingTarget = 0, selectedRating = 0;
@@ -1476,19 +1536,26 @@ function showPage(name) {
   if (name==="home"  && contract) loadAll();
 }
 
-// ── Utilities ────────────────────────────────────────────────────────────────
+// ── Utilities & Date Formatting ──────────────────────────────────────────────
 function esc(s) {
   if (!s) return "";
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
+
 function fmtDate(ts) {
-  const d = new Date(Number(ts)*1000);
-  return d.toLocaleDateString("en-PK",{year:"numeric",month:"short",day:"numeric"});
+  if (!ts) return "N/A";
+  const timestamp = ts._isBigNumber ? ts.toNumber() : Number(ts);
+  const d = new Date(timestamp * 1000);
+  return d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" });
 }
+
 function fmtDateFull(ts) {
-  const d = new Date(Number(ts)*1000);
-  return d.toLocaleString("en-PK",{year:"numeric",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+  if (!ts) return "N/A";
+  const timestamp = ts._isBigNumber ? ts.toNumber() : Number(ts);
+  const d = new Date(timestamp * 1000);
+  return d.toLocaleString("en-PK", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+
 function toast(msg, isErr=false) {
   const t = document.getElementById("toast");
   t.textContent = msg;
